@@ -92,11 +92,15 @@ julia> plot(mean(rodent.decoder, z)', labels=["x"  "ẋ"])
 function Rodent(slen::Int, tlen::Int, dt::T, encoder;
                 ode=Dense(slen,slen),
                 observe=sol->reshape(hcat(sol.u...), :),
-                olen=slen*tlen) where T
-    zlen = length(Flux.destructure(ode)[1]) + slen
+                olen=slen*tlen,
+                dss_function=nothing,
+                dss_par_length=0) where T
+    zlen = length(Flux.destructure(ode)[1]) + slen + dss_par_length
 
     μpz = NoGradArray(zeros(T, zlen))
+    μpz = NoGradArray([zeros(T, length(Flux.destructure(ode)[1]) + dss_par_length); 40. .* ones(T,slen)])
     λ2z = ones(T, zlen) / 20
+    λ2z = [ones(T, length(Flux.destructure(ode)[1]) + dss_par_length)/20.; 100. .* ones(T,slen)]
     prior = Gaussian(μpz, λ2z)
 
     σ2z = ones(T, zlen) / 20
@@ -104,6 +108,16 @@ function Rodent(slen::Int, tlen::Int, dt::T, encoder;
 
     σ2x = ones(T, 1) / 20
     decoder = FluxODEDecoder(slen, tlen, dt, ode, observe)
+    if dss_function != nothing
+        # wrong condition - always false "dss_sevcik" vs \sectionfont{\fontsize{12}{15}\selectfont}
+        if length(Flux.destructure(ode)[1]) == 6 && slen == 2 && ode == "dss_sevcik"
+            μpz = NoGradArray(zeros(T, zlen) + [1; 0; 0; 1; 0; 0; 0; 0])
+            prior = Gaussian(μpz, λ2z)
+        end
+
+        prior = Gaussian(μpz, λ2z)
+        decoder = FluxDSSDecoder(slen, tlen, dt, dss_function, observe, zlen)
+    end
     dec_dist = CMeanGaussian{ScalarVar}(decoder, σ2x, olen)
 
     Rodent(prior, enc_dist, dec_dist)

@@ -25,6 +25,7 @@ module GenerativeModels
     abstract type AbstractGAN <: AbstractGM end
 
     include(joinpath("utils", "flux_ode_decoder.jl"))
+    include(joinpath("utils", "flux_dss_decoder.jl"))
     include(joinpath("utils", "saveload.jl"))
     include(joinpath("utils", "utils.jl"))
 
